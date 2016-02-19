@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
-#include <time.h>
+//#include <time.h>
 #include <unistd.h>
 #include <utime.h>
 #include <limits.h>
@@ -944,10 +944,49 @@ void FAST_FUNC signal_SA_RESTART_empty_mask(int sig, void (*handler)(int))
 }
 
 /* Old glibc (< 2.3.4) does not provide this constant. We use syscall
- * directly so this definition is safe. */
+ * directly so this definition is safe. 
 #ifndef CLOCK_MONOTONIC
+#if __linux__
 #define CLOCK_MONOTONIC 1
+#elif defined(darwin) || defined(__FreeBSD__) || defined(__APPLE__) || defined(MACOSX)
+#define CLOCK_MONOTONIC 0
 #endif
+#endif
+
+#if defined(darwin) || defined(__FreeBSD__) || defined(__APPLE__) || defined(MACOSX)
+int clock_gettime(int clk_id, struct timespec* t) {
+    struct timeval now;
+    int rv = gettimeofday(&now, NULL);
+    if (rv) return rv;
+    t->tv_sec  = now.tv_sec;
+    t->tv_nsec = now.tv_usec * 1000;
+    return 0;
+}
+#endif
+
+*/
+
+#if defined(__MACH__) || defined(darwin) || defined(__FreeBSD__) || defined(__APPLE__) || defined(MACOSX)
+#include <mach/mach_time.h>
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 0
+#endif
+static void get_mono(struct timespec *ts)
+{
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
+    uint64_t time;
+    time = mach_absolute_time();
+    double nseconds = ((double)time * (double)timebase.numer)/((double)timebase.denom);
+    double seconds = ((double)time * (double)timebase.numer)/((double)timebase.denom * 1e9);
+    ts->tv_sec = seconds;
+    ts->tv_nsec = nseconds;
+    return 0;
+}
+#elif __linux__
+#include <time.h>
+#define CLOCK_MONOTONIC 1
 
 /* libc has incredibly messy way of doing this,
  * typically requiring -lrt. We just skip all this mess */
@@ -956,6 +995,7 @@ static void get_mono(struct timespec *ts)
 	if (syscall(__NR_clock_gettime, CLOCK_MONOTONIC, ts))
 		bb_perror_msg_and_die("clock_gettime(MONOTONIC) failed");
 }
+#endif
 
 unsigned long long FAST_FUNC monotonic_ns(void)
 {
