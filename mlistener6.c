@@ -24,6 +24,10 @@
 #define NAME_LEN 10
 #define BUF_LEN 65535
 
+#ifndef IPV6_ADD_MEMBERSHIP
+#define IPV6_ADD_MEMBERSHIP IPV6_JOIN_GROUP
+#endif
+
 unsigned int l_count = 0;
 /* map sender source ip's least two bytes to this array
  * one to one mapping, do not check conflict

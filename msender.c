@@ -17,14 +17,26 @@
  *		- Show source ip address on command line
  */
 
+#ifdef __FreeBSD__
+typedef unsigned int u_int;
+typedef unsigned long u_long;
+typedef unsigned long int n_long;
+typedef unsigned short u_short;
+typedef unsigned char u_char;
+#endif
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <netinet/ip.h>
+
+#define __FAVOR_BSD
+/* use bsd'ish udp header */
 #include <netinet/udp.h>
+#include <unistd.h>
+#include <netdb.h>
 
 #define version "0.3"
 
@@ -223,25 +235,40 @@ main (int argc, char *argv[])
 					sizeof(struct ip)>>1);
 
 			/* udp header */
+			/*
 			udp->source = htons(sport);
 			udp->dest = htons((short)atoi(port));
 			udp->len = htons((short)(length - sizeof(struct ip)));
+			*/
+        	udp->uh_sport=htons(sport);
+        	udp->uh_dport=htons((short)atoi(port));
+        	udp->uh_ulen=htons((short)(length - sizeof(struct ip)));			
 			pseudo.src = iph->ip_src.s_addr;
 			pseudo.dst = iph->ip_dst.s_addr;
 			pseudo.zero = 0;
 			pseudo.proto = iph->ip_p;
-			pseudo.length = udp->len;
+			//pseudo.length = udp->len;
+			pseudo.length = udp->uh_ulen;
 
 			/* payload */
 			snprintf(payload,
 				length-sizeof(struct ip)-sizeof(struct udphdr),
 				"Sender %s->%s: %d", source, group, i++);
+			/*
 			udp->check = udp_csum((unsigned short*)&pseudo,
 				(unsigned short*)udp, 
 				(length - sizeof(struct ip))>>1);
+			*/
+			udp->uh_sum = udp_csum((unsigned short*)&pseudo,
+				(unsigned short*)udp, 
+				(length - sizeof(struct ip))>>1);
 
+			/*
 			if (udp->check == 0)
 				udp->check = 0xFFFF;
+			*/
+			if (udp->uh_sum == 0)
+				udp->uh_sum = 0xFFFF;
 		} else {
 			payload = msgbuf;
 			snprintf(payload,length,"Sender %s->%s: %d", source, group, i++);

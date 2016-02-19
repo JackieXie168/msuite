@@ -9,22 +9,37 @@
  * 		- add pim source option
  *		- add version information
  */
+
+#ifdef __FreeBSD__
+typedef unsigned int u_int;
+typedef unsigned long u_long;
+typedef unsigned long int n_long;
+typedef unsigned short u_short;
+typedef unsigned char u_char;
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
-#include <netinet/udp.h>
+//#include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+//#include <netdb.h>
+
+#define __FAVOR_BSD
+/* use bsd'ish udp header */
+#include <netinet/udp.h>
+#include <unistd.h>
 #include <netdb.h>
 
 /* General data type definition */
@@ -272,6 +287,7 @@ int make_pim_register()
 	header += sizeof(struct ip);
 
 	mcast_udphdr = (struct udphdr*)(header);
+	/*
 	mcast_udphdr->source = htons(mcast_port);
 	mcast_udphdr->dest = htons(mcast_port);
 	if( has_local_source ) {
@@ -280,6 +296,15 @@ int make_pim_register()
 		mcast_udphdr->len = htons(length - sizeof(struct _SPimRegHdr) - sizeof(struct ip));
 	}
 	mcast_udphdr->check = csum((unsigned short*)(((int*)mcast_udphdr)-2), strlen(((char*)mcast_udphdr)-1)>>1);
+	*/
+	mcast_udphdr->uh_sport = htons(mcast_port);
+	mcast_udphdr->uh_dport = htons(mcast_port);
+	if( has_local_source ) {
+		mcast_udphdr->uh_ulen = htons(length - sizeof(struct ip) - sizeof(struct _SPimRegHdr) - sizeof(struct ip));
+	} else {
+		mcast_udphdr->uh_ulen = htons(length - sizeof(struct _SPimRegHdr) - sizeof(struct ip));
+	}
+	mcast_udphdr->uh_sum = csum((unsigned short*)(((int*)mcast_udphdr)-2), strlen(((char*)mcast_udphdr)-1)>>1);
 
 	if( has_local_source ) {
 		mcast_iph->ip_sum = csum ((unsigned short*)mcast_iph, (length - sizeof(struct ip) - sizeof(struct _SPimRegHdr))>>1);
