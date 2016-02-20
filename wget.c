@@ -622,7 +622,7 @@ void* FAST_FUNC xrealloc(void *ptr, size_t size)
 }
 #endif /* DMALLOC */
 
-const char *applet_name = "debug stuff usage";
+const char *applet_name = "wget usage";
 void FAST_FUNC bb_verror_msg(const char *s, va_list p, const char* strerr)
 {
 	char *msg;
@@ -1853,6 +1853,9 @@ static void progressmeter(int flag)
 
 	if (since_last_update >= STALLTIME) {
 		fprintf(stderr, " - stalled -");
+		if(since_last_update >= 30){
+			bb_error_msg_and_die(" - timeout -stalled over %d times", since_last_update);
+		}
 	} else {
 		off_t to_download = totalsize - beg_range;
 		if (transferred <= 0 || (int)elapsed <= 0 || transferred > to_download || chunked) {
@@ -2367,7 +2370,11 @@ However, in real world it was observed that some web servers
 			default:
 				/* Show first line only and kill any ESC tricks */
 				buf[strcspn(buf, "\n\r\x1b")] = '\0';
-				bb_error_msg_and_die("server returned error: %s", buf);
+				if(!strcmp(buf, "HTTP/1.1 416 Requested Range Not Satisfiable")){
+					bb_error_msg_and_die("File is already downloaded, do not operation !!!");
+				}
+				else
+					bb_error_msg_and_die("server returned error: %s", buf);
 			}
 
 			/*
