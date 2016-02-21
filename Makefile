@@ -26,7 +26,7 @@ INCLUDE  = -I.
 CFLAGS   += $(WARNINGS) $(OPTIMIZE) $(INCLUDE)
 
 CPPFLAGS = -fno-stack-protector -Wall -I$(HOME)/include -I/usr/local/include -L$(HOME)/lib -L/usr/local/lib -l$(LIB_NVRAM) -lssl -lcrypto $(CFLAGS)
-CFLAGS += -Wall -I$(HOME)/include -I/usr/local/include -L$(HOME)/lib -L/usr/local/lib -l$(LIB_NVRAM) -lssl -lcrypto
+CFLAGS += -Wall -I$(HOME)/include -I/usr/local/include -L$(HOME)/lib -L/usr/local/lib -l$(LIB_NVRAM) -lssl -lcrypto -lpcap
 
 TARGET = msender mlistener pim_sender pim_listener udpserver udpclient msender6 mlistener6 syn_flood mdaemon nfsu2relay rcon snmpdos icqflood icqsnoop icqspoof getIPAddress rawtcp rawudp serverprog
 SCRIPTS = msource.sh mgroup.sh mpim_rp.sh mpim_source.sh downalias.sh
