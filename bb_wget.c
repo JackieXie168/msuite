@@ -1206,7 +1206,33 @@ int FAST_FUNC xsocket(int domain, int types, int protocol)
 
 void FAST_FUNC xconnect(int s, const struct sockaddr *s_addr, socklen_t addrlen)
 {
+	int error = -1;
+	struct timeval timeout = {2,0}; 
+	
+	fcntl(s,F_SETFL, O_NONBLOCK);
+	//setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+
 	if (connect(s, s_addr, addrlen) < 0) {
+		if (errno == EINPROGRESS) {// it is in the connect process
+			fd_set writefds;
+			timeout.tv_sec = 2;
+			timeout.tv_usec = 0;
+			FD_ZERO(&writefds);
+			FD_SET(s, &writefds);
+			if(select(s+1, NULL, &writefds, NULL, &timeout) > 0){ 
+				int len=sizeof(int); 
+				getsockopt(s, SOL_SOCKET, SO_ERROR, &error, &len); 
+				if(error == 0)
+					goto connected;
+				else{
+					goto conn_error;
+				}
+			}
+			else {
+				fprintf(stderr, "timeout\n"); 
+				goto conn_error;
+			}
+		}
 		if (ENABLE_FEATURE_CLEAN_UP)
 			close(s);
 		if (s_addr->sa_family == AF_INET)
@@ -1215,6 +1241,15 @@ void FAST_FUNC xconnect(int s, const struct sockaddr *s_addr, socklen_t addrlen)
 				inet_ntoa(((struct sockaddr_in *)s_addr)->sin_addr));
 		bb_perror_msg_and_die("cannot connect to remote host");
 	}
+	else
+		goto connected;
+
+conn_error:
+	close(s);
+	bb_perror_msg_and_die("%s (%s)", "cannot connect to remote host", inet_ntoa(((struct sockaddr_in *)s_addr)->sin_addr));
+
+connected:
+	fcntl(s, F_SETFL, O_ASYNC);
 }
 
 int FAST_FUNC xconnect_stream(const len_and_sockaddr *lsa)
@@ -1853,7 +1888,7 @@ static void progressmeter(int flag)
 
 	if (since_last_update >= STALLTIME) {
 		fprintf(stderr, " - stalled -");
-		if(since_last_update >= 30){
+		if(since_last_update >= 15){
 			bb_error_msg_and_die(" - timeout -stalled over %d times", since_last_update);
 		}
 	} else {
@@ -2126,7 +2161,7 @@ int main(int argc UNUSED_PARAM, char **argv)
 	len_and_sockaddr *lsa;
 	int status;
 	int port;
-	int try = 5;
+	int try = 2;
 	unsigned opt;
 	char *str;
 	char *proxy = 0;
